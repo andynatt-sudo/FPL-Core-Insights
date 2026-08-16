@@ -9,6 +9,8 @@ from supabase import create_client, Client
 import logging
 from datetime import date, datetime, timezone
 
+from clean_playermatchstats import sanitize as sanitize_playermatchstats
+
 # --- Configuration ---
 
 
@@ -409,6 +411,15 @@ def main():
     if playermatchstats_df.empty:
         logger.info("  > 'playermatchstats' is empty (season not started?) - continuing with empty stats.")
         playermatchstats_df = ensure_playermatchstats_columns(pd.DataFrame())
+
+    # Correct the known upstream defects (phantom appearances, null minutes on
+    # non-appearances, timelines that contradict minutes_played) once, here,
+    # so every file written below inherits the cleaned rows. See
+    # scripts/clean_playermatchstats.py for what is fixed and why.
+    logger.info("\n--- Sanitising playermatchstats ---")
+    playermatchstats_df = sanitize_playermatchstats(
+        playermatchstats_df, players_df, matches_df, logger=logger
+    )
 
     # --- Data Pre-processing ---
     def extract_tournament_slug(match_id):
